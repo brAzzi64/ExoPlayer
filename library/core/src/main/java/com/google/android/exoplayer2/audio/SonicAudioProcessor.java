@@ -26,7 +26,7 @@ import java.nio.ShortBuffer;
 /**
  * An {@link AudioProcessor} that uses the Sonic library to modify the speed/pitch of audio.
  */
-public final class SonicAudioProcessor implements AudioProcessor {
+public final class SonicAudioProcessor implements PSTSAudioProcessor {
 
   /**
    * The maximum allowed playback speed in {@link #setSpeed(float)}.
@@ -83,6 +83,7 @@ public final class SonicAudioProcessor implements AudioProcessor {
    * @param speed The requested new playback speed.
    * @return The actual new playback speed.
    */
+  @Override
   public float setSpeed(float speed) {
     this.speed = Util.constrainValue(speed, MINIMUM_SPEED, MAXIMUM_SPEED);
     return this.speed;
@@ -94,6 +95,7 @@ public final class SonicAudioProcessor implements AudioProcessor {
    * @param pitch The requested new pitch.
    * @return The actual new pitch.
    */
+  @Override
   public float setPitch(float pitch) {
     this.pitch = Util.constrainValue(pitch, MINIMUM_PITCH, MAXIMUM_PITCH);
     return pitch;
@@ -102,6 +104,7 @@ public final class SonicAudioProcessor implements AudioProcessor {
   /**
    * Returns the number of bytes of input queued since the last call to {@link #flush()}.
    */
+  @Override
   public long getInputByteCount() {
     return inputBytes;
   }
@@ -109,6 +112,7 @@ public final class SonicAudioProcessor implements AudioProcessor {
   /**
    * Returns the number of bytes of output dequeued since the last call to {@link #flush()}.
    */
+  @Override
   public long getOutputByteCount() {
     return outputBytes;
   }

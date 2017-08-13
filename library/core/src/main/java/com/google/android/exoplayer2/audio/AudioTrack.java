@@ -253,7 +253,7 @@ public final class AudioTrack {
   private static final int MIN_TIMESTAMP_SAMPLE_INTERVAL_US = 500000;
 
   /**
-   * The minimum number of output bytes from {@link #sonicAudioProcessor} at which the speedup is
+   * The minimum number of output bytes from {@link #pstsAudioProcessor} at which the speedup is
    * calculated using the input/output byte counts from the processor, rather than using the
    * current playback parameters speed.
    */
@@ -279,7 +279,7 @@ public final class AudioTrack {
 
   private final AudioCapabilities audioCapabilities;
   private final ChannelMappingAudioProcessor channelMappingAudioProcessor;
-  private final SonicAudioProcessor sonicAudioProcessor;
+  private final PSTSAudioProcessor pstsAudioProcessor;
   private final AudioProcessor[] availableAudioProcessors;
   private final Listener listener;
   private final ConditionVariable releasingConditionVariable;
@@ -373,13 +373,33 @@ public final class AudioTrack {
     } else {
       audioTrackUtil = new AudioTrackUtil();
     }
+
+    // If the user wants one of their own processors to override Sonic as the
+    // Pitch Shifting & Time Stretching processor, they'll be passing it in the last position
+    PSTSAudioProcessor overridingPSTSProcessor = null;
+    if (audioProcessors.length > 0 && (audioProcessors[audioProcessors.length - 1] instanceof PSTSAudioProcessor)) {
+      overridingPSTSProcessor = (PSTSAudioProcessor) audioProcessors[audioProcessors.length - 1];
+    }
+
+    ResamplingAudioProcessor resamplingAudioProcessor = new ResamplingAudioProcessor();
     channelMappingAudioProcessor = new ChannelMappingAudioProcessor();
-    sonicAudioProcessor = new SonicAudioProcessor();
-    availableAudioProcessors = new AudioProcessor[3 + audioProcessors.length];
-    availableAudioProcessors[0] = new ResamplingAudioProcessor();
-    availableAudioProcessors[1] = channelMappingAudioProcessor;
-    System.arraycopy(audioProcessors, 0, availableAudioProcessors, 2, audioProcessors.length);
-    availableAudioProcessors[2 + audioProcessors.length] = sonicAudioProcessor;
+
+    if (overridingPSTSProcessor == null) {
+      pstsAudioProcessor = new SonicAudioProcessor();
+      availableAudioProcessors = new AudioProcessor[3 + audioProcessors.length];
+      availableAudioProcessors[0] = resamplingAudioProcessor;
+      availableAudioProcessors[1] = channelMappingAudioProcessor;
+      System.arraycopy(audioProcessors, 0, availableAudioProcessors, 2, audioProcessors.length);
+      availableAudioProcessors[2 + audioProcessors.length] = pstsAudioProcessor;
+    } else {
+      pstsAudioProcessor = overridingPSTSProcessor;
+      availableAudioProcessors = new AudioProcessor[3 + audioProcessors.length - 1];
+      availableAudioProcessors[0] = resamplingAudioProcessor;
+      availableAudioProcessors[1] = channelMappingAudioProcessor;
+      System.arraycopy(audioProcessors, 0, availableAudioProcessors, 2, audioProcessors.length - 1);
+      availableAudioProcessors[2 + audioProcessors.length - 1] = pstsAudioProcessor;  // copying it manually
+    }
+
     playheadOffsets = new long[MAX_PLAYHEAD_OFFSET_COUNT];
     volume = 1.0f;
     startMediaTimeState = START_NOT_SET;
@@ -976,8 +996,8 @@ public final class AudioTrack {
       return this.playbackParameters;
     }
     playbackParameters = new PlaybackParameters(
-        sonicAudioProcessor.setSpeed(playbackParameters.speed),
-        sonicAudioProcessor.setPitch(playbackParameters.pitch));
+        pstsAudioProcessor.setSpeed(playbackParameters.speed),
+        pstsAudioProcessor.setPitch(playbackParameters.pitch));
     PlaybackParameters lastSetPlaybackParameters =
         drainingPlaybackParameters != null ? drainingPlaybackParameters
             : !playbackParametersCheckpoints.isEmpty()
@@ -1219,10 +1239,10 @@ public final class AudioTrack {
     }
 
     if (playbackParametersCheckpoints.isEmpty()
-        && sonicAudioProcessor.getOutputByteCount() >= SONIC_MIN_BYTES_FOR_SPEEDUP) {
+        && pstsAudioProcessor.getOutputByteCount() >= SONIC_MIN_BYTES_FOR_SPEEDUP) {
       return playbackParametersOffsetUs
           + Util.scaleLargeTimestamp(positionUs - playbackParametersPositionUs,
-          sonicAudioProcessor.getInputByteCount(), sonicAudioProcessor.getOutputByteCount());
+          pstsAudioProcessor.getInputByteCount(), pstsAudioProcessor.getOutputByteCount());
     }
 
     // We are playing drained data at a previous playback speed, or don't have enough bytes to
