@@ -1147,11 +1147,7 @@ public final class AudioTrack {
       playbackParametersPositionUs = 0;
       inputBuffer = null;
       outputBuffer = null;
-      for (int i = 0; i < audioProcessors.length; i++) {
-        AudioProcessor audioProcessor = audioProcessors[i];
-        audioProcessor.flush();
-        outputBuffers[i] = audioProcessor.getOutput();
-      }
+      resetAudioProcessors();
       handledEndOfStream = false;
       drainingAudioProcessorIndex = C.INDEX_UNSET;
       avSyncHeader = null;
