@@ -26,7 +26,7 @@ import java.nio.ShortBuffer;
 /**
  * An {@link AudioProcessor} that uses the Sonic library to modify audio speed/pitch/sample rate.
  */
-public final class SonicAudioProcessor implements AudioProcessor {
+public final class SonicAudioProcessor implements PSTSAudioProcessor {
 
   /**
    * The maximum allowed playback speed in {@link #setSpeed(float)}.
@@ -52,7 +52,7 @@ public final class SonicAudioProcessor implements AudioProcessor {
   /**
    * The threshold below which the difference between two pitch/speed factors is negligible.
    */
-  private static final float CLOSE_THRESHOLD = 0.01f;
+  private static final float CLOSE_THRESHOLD = 0.0005f;  // because we support cents
 
   /**
    * The minimum number of output bytes at which the speedup is calculated using the input/output
@@ -97,6 +97,7 @@ public final class SonicAudioProcessor implements AudioProcessor {
    * @param speed The requested new playback speed.
    * @return The actual new playback speed.
    */
+  @Override
   public float setSpeed(float speed) {
     this.speed = Util.constrainValue(speed, MINIMUM_SPEED, MAXIMUM_SPEED);
     return this.speed;
@@ -108,6 +109,7 @@ public final class SonicAudioProcessor implements AudioProcessor {
    * @param pitch The requested new pitch.
    * @return The actual new pitch.
    */
+  @Override
   public float setPitch(float pitch) {
     this.pitch = Util.constrainValue(pitch, MINIMUM_PITCH, MAXIMUM_PITCH);
     return pitch;
@@ -133,6 +135,7 @@ public final class SonicAudioProcessor implements AudioProcessor {
    * @return The specified duration scaled to take into account speedup, in the same units as
    *     {@code duration}.
    */
+  @Override
   public long scaleDurationForSpeedup(long duration) {
     if (outputBytes >= MIN_BYTES_FOR_SPEEDUP_CALCULATION) {
       return outputSampleRateHz == sampleRateHz

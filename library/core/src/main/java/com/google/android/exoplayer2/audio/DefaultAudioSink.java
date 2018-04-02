@@ -167,7 +167,7 @@ public final class DefaultAudioSink implements AudioSink {
   private final boolean enableConvertHighResIntPcmToFloat;
   private final ChannelMappingAudioProcessor channelMappingAudioProcessor;
   private final TrimmingAudioProcessor trimmingAudioProcessor;
-  private final SonicAudioProcessor sonicAudioProcessor;
+  private final PSTSAudioProcessor pstsAudioProcessor;
   private final AudioProcessor[] toIntPcmAvailableAudioProcessors;
   private final AudioProcessor[] toFloatPcmAvailableAudioProcessors;
   private final ConditionVariable releasingConditionVariable;
@@ -278,16 +278,27 @@ public final class DefaultAudioSink implements AudioSink {
     } else {
       audioTrackUtil = new AudioTrackUtil();
     }
+
+    // If the user wants one of their own processors to override Sonic as the
+    // Pitch Shifting & Time Stretching processor, they'll be passing it in the last position
+    if (audioProcessors.length > 0 && (audioProcessors[audioProcessors.length - 1] instanceof PSTSAudioProcessor)) {
+      pstsAudioProcessor = (PSTSAudioProcessor) audioProcessors[audioProcessors.length - 1];
+      AudioProcessor[] originalArray = audioProcessors;
+      audioProcessors = new AudioProcessor[originalArray.length - 1];
+      System.arraycopy(originalArray, 0, audioProcessors, 0, audioProcessors.length);
+    } else {
+      pstsAudioProcessor = new SonicAudioProcessor();
+    }
+
     channelMappingAudioProcessor = new ChannelMappingAudioProcessor();
     trimmingAudioProcessor = new TrimmingAudioProcessor();
-    sonicAudioProcessor = new SonicAudioProcessor();
     toIntPcmAvailableAudioProcessors = new AudioProcessor[4 + audioProcessors.length];
     toIntPcmAvailableAudioProcessors[0] = new ResamplingAudioProcessor();
     toIntPcmAvailableAudioProcessors[1] = channelMappingAudioProcessor;
     toIntPcmAvailableAudioProcessors[2] = trimmingAudioProcessor;
     System.arraycopy(
         audioProcessors, 0, toIntPcmAvailableAudioProcessors, 3, audioProcessors.length);
-    toIntPcmAvailableAudioProcessors[3 + audioProcessors.length] = sonicAudioProcessor;
+    toIntPcmAvailableAudioProcessors[3 + audioProcessors.length] = pstsAudioProcessor;
     toFloatPcmAvailableAudioProcessors = new AudioProcessor[] {new FloatResamplingAudioProcessor()};
     playheadOffsets = new long[MAX_PLAYHEAD_OFFSET_COUNT];
     volume = 1.0f;
@@ -842,8 +853,8 @@ public final class DefaultAudioSink implements AudioSink {
       return this.playbackParameters;
     }
     playbackParameters = new PlaybackParameters(
-        sonicAudioProcessor.setSpeed(playbackParameters.speed),
-        sonicAudioProcessor.setPitch(playbackParameters.pitch));
+        pstsAudioProcessor.setSpeed(playbackParameters.speed),
+        pstsAudioProcessor.setPitch(playbackParameters.pitch));
     PlaybackParameters lastSetPlaybackParameters =
         drainingPlaybackParameters != null ? drainingPlaybackParameters
             : !playbackParametersCheckpoints.isEmpty()
@@ -1047,7 +1058,7 @@ public final class DefaultAudioSink implements AudioSink {
 
     if (playbackParametersCheckpoints.isEmpty()) {
       return playbackParametersOffsetUs
-          + sonicAudioProcessor.scaleDurationForSpeedup(positionUs - playbackParametersPositionUs);
+          + pstsAudioProcessor.scaleDurationForSpeedup(positionUs - playbackParametersPositionUs);
     }
     // We are playing data at a previous playback speed, so fall back to multiplying by the speed.
     return playbackParametersOffsetUs
