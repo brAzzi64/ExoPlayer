@@ -17,7 +17,7 @@ package com.google.android.exoplayer2.source.dash.manifest;
 
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 /**
  * Uniquely identifies a {@link Representation} in a {@link DashManifest}.
